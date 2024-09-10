@@ -16,7 +16,7 @@ volatile bool BtnPCCPressed = false;
 volatile bool BtnPCCLongPress = false;
 	
 void IRAM_ATTR btn_debounce() {
-   BtnPCCState = ((BtnPCCState<<1) | ((uint32_t)BTN_PCC()) );
+   BtnPCCState = ((BtnPCCState<<1));
    if ((BtnPCCState | 0xFFFFFFF0) == 0xFFFFFFF8) {
      BtnPCCPressed = true;
      }    

@@ -15,11 +15,8 @@
 #include "nvd.h"
 #include "audio.h"
 #include "ringbuf.h"
-#include "wificfg.h"
 #include "ui.h"
-#if (CFG_BLUETOOTH == true)
-#include "btserial.h"
-#endif
+
 
 int      AppMode;
 
@@ -58,10 +55,6 @@ volatile int SleepCounter;
 volatile int BaroCounter;
 volatile int SleepTimeoutSecs;
 
-#if (CFG_LANTERN == true)
-int LEDPwmLkp[4] = {LANTERN_DIM, LANTERN_LOW, LANTERN_MID, LANTERN_HI};
-int LanternState;
-#endif
 
 boolean bWebConfigure = false;
 
@@ -142,48 +135,14 @@ void setup_vario() {
 	SleepTimeoutSecs = 0;
 	ringbuf_init(); 
 	SleepCounter = 0;
-#if (CFG_BLUETOOTH == true)    
-	if (Nvd.par.cfg.misc.bluetoothEnable == 1){
-		dbg_println(("\r\nStarting Vario with bluetooth LK8EX1 messages @ 10Hz\r\n"));
-		}
-	else {
-		dbg_println(("\r\nStarting Vario with bluetooth disabled\r\n"));  
-		}
-#else 
-	dbg_println(("\r\nStarting Vario\r\n"));  
-#endif
-	}
 
-#if (CFG_LANTERN == true)   
-void setup_lantern() {
-    pinMode(pinLED, OUTPUT);
-	digitalWrite(pinLED, 0); // LED off
-    dbg_println(("Lantern mode"));
-    LanternState = 0;
-    analogWrite(pinLED, LEDPwmLkp[LanternState]);
-    }
-#endif
-
-#if (CFG_BLUETOOTH == true)   
-void config_bluetooth() {
-	pinMode(pinHM11Pwr, OUTPUT); // enable/disable power to HM-11 Bluetooth module
-	digitalWrite(pinHM11Pwr, 0);  // disable
-	if (Nvd.par.cfg.misc.bluetoothEnable) {
-		dbg_println(("Enabling Bluetooth"));
-		digitalWrite(pinHM11Pwr, 1);
-		delay(300);
-		Serial1.begin(9600);
-		delay(20);
-		// bluetooth device name = "EspVario"
-		Serial1.print("AT+NAMEEspVario");
-		}
-   }
-#endif        
+	dbg_println(("\r\nStarting Vario\r\n"));
+	
+	}     
 
 
 void setup() {
 	pinMode(pinPCC, INPUT); //  Program/Configure/Calibrate Button
-	wificfg_wifi_off(); // turn off radio to save power
 
 #ifdef TOP_DEBUG    
 	Serial.begin(115200);
@@ -218,23 +177,15 @@ void setup() {
 		// After you are done with web configuration, switch off the vario as the wifi radio
 		// consumes a lot of power.
 		audio_generate_tone(200, 3000);
-		wificfg_ap_server_init(); 
 		}
   	else {
     	ui_indicate_battery_voltage();
-#if (CFG_BLUETOOTH == true)   
-        config_bluetooth();
-#endif        
+
     	switch (AppMode) {
 			case APP_MODE_VARIO :
 			default :
 			setup_vario();
 			break;
-#if (CFG_LANTERN == true)
-			case APP_MODE_LANTERN :
-			setup_lantern();
-			break;
-#endif            
 			}
 		}
 	ui_btn_init();	
@@ -242,6 +193,8 @@ void setup() {
 
 
 void vario_loop() {
+ 
+
 	if (DrdyFlag == true) {
 		// 500Hz ODR => 2mS sample interval
 		DrdyFlag = false;
@@ -310,19 +263,13 @@ void vario_loop() {
 	#endif
 		if (DrdyCounter >= 50) {
 			DrdyCounter = 0; // 0.1 second elapsed
-#if (CFG_BLUETOOTH == true)
-			if (Nvd.par.cfg.misc.bluetoothEnable == 1) {
-				int adcVal = analogRead(A0);
-				float bv = adc_battery_voltage(adcVal);
-				int altM =  KfAltitudeCm > 0.0f ? (int)((KfAltitudeCm+50.0f)/100.0f) :(int)((KfAltitudeCm-50.0f)/100.0f);
-				btserial_transmit_LK8EX1(altM, audioCps, bv);
-				}
-#endif
+
 			SleepCounter++;
 			if (SleepCounter >= 10) {
 				SleepCounter = 0;
 				SleepTimeoutSecs++;
-				#ifdef IMU_DEBUG
+				
+
 				float yaw, pitch, roll;
 				imu_quaternion_to_yaw_pitch_roll(Q0,Q1,Q2,Q3, &yaw, &pitch, &roll);
 				// Pitch is positive for clockwise rotation about the +Y axis
@@ -331,7 +278,7 @@ void vario_loop() {
 				// Magnetometer isn't used, so yaw is initialized to 0 for the "forward" direction of the case on power up.
 				dbg_printf(("\r\nY = %d P = %d R = %d\r\n", (int)yaw, (int)pitch, (int)roll));
 				dbg_printf(("ba = %d ka = %d kv = %d\r\n",(int)Ms5611.altitudeCm, (int)KfAltitudeCm, (int)KfClimbrateCps));
-				#endif     
+
 				#ifdef CCT_DEBUG      
                 // The raw IMU data rate is 500Hz, i.e. 2000uS between Data Ready Interrupts
                 // We need to read the MPU9250 data, MS5611 data and finish all computations
@@ -342,73 +289,8 @@ void vario_loop() {
 				}
 			}
 		}	
-#if (CFG_LANTERN == true)
-	if (BtnPCCLongPress == true) {
-		AppMode = APP_MODE_LANTERN;
-		setup_lantern();
-		delay(500);
-		ui_btn_clear();    
-		}  
-#endif        
 	}
 
-#if (CFG_LANTERN == true)
-void lantern_loop() {
-	int count;
-	if (BtnPCCPressed) {
-		ui_btn_clear();
-		LanternState++;
-		if (LanternState > 4) {
-			LanternState = 0;
-			}
-		if (LanternState < 4) {
-			analogWrite(pinLED, LEDPwmLkp[LanternState]);
-			}
-		}
-	if (LanternState == 4) {
-	// flash S.O.S. pattern
-		count = 3;
-		while (count--) {
-			if (BtnPCCPressed) return;
-			analogWrite(pinLED, 1023);
-			delay(50);
-			analogWrite(pinLED, 0);
-			delay(400);
-			}
-		count = 12;
-		while (count--) {
-			if (BtnPCCPressed) return;
-			delay(50);        
-			}
-		count = 3;
-		while (count--) {
-			if (BtnPCCPressed) return;
-			analogWrite(pinLED, 1023);
-			delay(1000);
-			analogWrite(pinLED, 0);
-			delay(400);
-			}
-		count = 12;
-		while (count--) {
-			if (BtnPCCPressed) return;
-			delay(50);        
-			}
-		count = 3;
-		while (count--) {
-			if (BtnPCCPressed) return;
-			analogWrite(pinLED, 1023);
-			delay(50);
-			analogWrite(pinLED, 0);
-			delay(400);
-			}
-		count = 80;
-		while (count--) {
-			if (BtnPCCPressed) return;
-			delay(50);
-			}    
-		}
-	}
-#endif
 
 
 void loop(){
@@ -420,13 +302,7 @@ void loop(){
 			case APP_MODE_VARIO :
 			default :
 			vario_loop();
-			break;
-
-#if (CFG_LANTERN == true)
-			case APP_MODE_LANTERN :
-			lantern_loop();
-			break;      
-#endif            
+			break;    
 			}
 		} 
 	}

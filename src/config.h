@@ -1,36 +1,14 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-// define as true if you want the associated feature support in the  code. 
-// Note : with bluetooth feature support you can still enable or disable bluetooth
-// transmission via the WiFi configuration webpage.
-
-#define CFG_BLUETOOTH   true
-#define CFG_L9110S      true
-#define CFG_LANTERN     te
-
-////////////////////////////////////////////////////////////////////////
-
 #define pinPCC       0
-#define pinSDA       5
-#define pinSCL       4
+#define pinSDA       4
+#define pinSCL       5
 #define pinDRDYInt   15
 #define pinAudio 	 14
 
-#if (CFG_BLUETOOTH == true)
-    #define pinHM11Pwr   13
-#endif
-#if (CFG_L9110S == true)
-    #define pinL9110Pwr  16
-#endif
-#if (CFG_LANTERN == true)
-    #define pinLED       12
-#endif
-
-#define BTN_PCC()  (GPIP(pinPCC) ? 1 : 0)
 
 #define APP_MODE_VARIO   11
-#define APP_MODE_LANTERN 22
 
 ////////////////////////////////////////////////////////////////////
 // WEB CONFIGURATION PARAMETER DEFAULTS AND LIMITS
@@ -144,8 +122,8 @@
 
 // !! ensure these #defines are commented out after debugging, as the 
 // enclosed debug prints are in the critical run-time loop.
-//#define IMU_DEBUG
-//#define CCT_DEBUG
+#define IMU_DEBUG
+#define CCT_DEBUG
 
 
 #endif

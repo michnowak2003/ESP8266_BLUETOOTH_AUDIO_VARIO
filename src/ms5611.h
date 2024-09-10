@@ -41,6 +41,7 @@ public :
 
     volatile float pressurePa;
     volatile float altitudeCm;
+    volatile float altitudeMeters;
     float altitudeCmAvg;
     int  temperatureC;
     volatile int sensorState;

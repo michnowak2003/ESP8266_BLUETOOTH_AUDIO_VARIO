@@ -6,6 +6,7 @@
 MS5611::MS5611() {
 	pressurePa = 0.0f;
 	altitudeCm = 0.0f;
+	altitudeMeters = 0.0f;
 	altitudeCmAvg = 0.0f;
 	temperatureC = 0;
 	}
@@ -83,6 +84,7 @@ void MS5611::averaged_sample(int nSamples) {
 	temperatureC = (tc >= 0 ?  (tc+50)/100 : (tc-50)/100);
 	pressurePa = (pAccum+nSamples/2)/nSamples;
 	altitudeCmAvg = altitudeCm = pa_to_cm(pressurePa);
+	altitudeMeters = pa_to_cm(pressurePa) / 100;
 #ifdef MS5611_DEBUG
    dbg_printf(("Tavg : %dC\r\n", temperatureC));
    dbg_printf(("Pavg : %dPa\r\n",(int)pressurePa));
@@ -191,6 +193,7 @@ int MS5611::sample_state_machine(void) {
       //celsiusSample_ = (tempCx100_ >= 0? (tempCx100_+50)/100 : (tempCx100_-50)/100);
       pressurePa = calculate_pressurePa();
 	  altitudeCm = pa_to_cm(pressurePa);
+	  altitudeMeters = pa_to_cm(pressurePa);
       //DBG_0();
 	  sensorState = MS5611_READ_PRESSURE;
       return 1;  // 1 => new altitude sample is available
