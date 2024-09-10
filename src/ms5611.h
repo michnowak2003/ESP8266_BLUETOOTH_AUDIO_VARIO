@@ -45,6 +45,8 @@ public :
     float altitudeCmAvg;
     int  temperatureC;
     volatile int sensorState;
+    volatile float relativeAltitudeCm;
+    volatile float initialAltitude;  // zmienna przechowująca początkową wysokość
 
 private :
     uint8_t prom_[16];

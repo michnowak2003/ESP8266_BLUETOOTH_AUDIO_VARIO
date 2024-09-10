@@ -121,7 +121,7 @@ void setup_vario() {
 	dbg_println(("\r\nMS5611 config"));
 	Ms5611.reset();
 	Ms5611.get_calib_coefficients(); // load MS5611 factory programmed calibration data
-	Ms5611.averaged_sample(4); // get an estimate of starting altitude
+	Ms5611.averaged_sample(10); // get an estimate of starting altitude
 	Ms5611.init_sample_state_machine(); // start the pressure & temperature sampling cycle
 
 	dbg_println(("\r\nKalmanFilter config"));
@@ -269,7 +269,7 @@ void vario_loop() {
 				SleepCounter = 0;
 				SleepTimeoutSecs++;
 				
-
+				#ifdef IMU_DEBUG
 				float yaw, pitch, roll;
 				imu_quaternion_to_yaw_pitch_roll(Q0,Q1,Q2,Q3, &yaw, &pitch, &roll);
 				// Pitch is positive for clockwise rotation about the +Y axis
@@ -278,6 +278,10 @@ void vario_loop() {
 				// Magnetometer isn't used, so yaw is initialized to 0 for the "forward" direction of the case on power up.
 				dbg_printf(("\r\nY = %d P = %d R = %d\r\n", (int)yaw, (int)pitch, (int)roll));
 				dbg_printf(("ba = %d ka = %d kv = %d\r\n",(int)Ms5611.altitudeCm, (int)KfAltitudeCm, (int)KfClimbrateCps));
+				dbg_printf(("altitude kalman = %d\r\n",(int)KfAltitudeCm));
+				dbg_printf(("relative altitude = %d\r\n",(int)Ms5611.relativeAltitudeCm));
+				
+				#endif
 
 				#ifdef CCT_DEBUG      
                 // The raw IMU data rate is 500Hz, i.e. 2000uS between Data Ready Interrupts
