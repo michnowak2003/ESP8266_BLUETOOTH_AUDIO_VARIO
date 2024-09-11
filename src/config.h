@@ -6,6 +6,7 @@
 #define pinSCL       5
 #define pinDRDYInt   15
 #define pinAudio 	 14
+#define LED       2
 
 
 #define APP_MODE_VARIO   11
@@ -93,6 +94,7 @@
 // if you find that gyro calibration fails even when you leave
 // the unit undisturbed, increase this offset limit
 // until you find that gyro calibration works consistently.
+//#define GYRO_OFFSET_LIMIT_1000DPS   	50
 #define GYRO_OFFSET_LIMIT_1000DPS   	50
 
 // pwm settings for lantern brightness
@@ -122,8 +124,8 @@
 
 // !! ensure these #defines are commented out after debugging, as the 
 // enclosed debug prints are in the critical run-time loop.
-#define IMU_DEBUG
-#define CCT_DEBUG
+//#define IMU_DEBUG
+//#define CCT_DEBUG
 
 
 #endif

@@ -43,10 +43,20 @@ void MPU9250::get_accel_gyro_data(float* pAccelData, float* pGyroData) {
 	}
 
 	
-int MPU9250::check_id(void) {
-	uint8_t whoami = read_byte(MPU9250_I2C_ADDRESS, WHO_AM_I_MPU9250);
-	return (( whoami == 0x71) ? 1 : 0);
-	}
+
+
+	int MPU9250::check_id(void) {
+    uint8_t whoami;
+    int attempts = 5;  // Liczba prób
+    while (attempts--) {
+        whoami = read_byte(MPU9250_I2C_ADDRESS, WHO_AM_I_MPU9250);
+        if (whoami == 0x71) {
+            return 1;  // Czujnik wykryty
+        }
+        delay(100);  // Czekaj 100 ms przed kolejną próbą
+    }
+    return 0;  // Czujnik nie został wykryty po próbach
+}
 	
 void MPU9250::get_calib_params(CALIB_PARAMS_t &calib) {
 	axBias_ = calib.axBias;

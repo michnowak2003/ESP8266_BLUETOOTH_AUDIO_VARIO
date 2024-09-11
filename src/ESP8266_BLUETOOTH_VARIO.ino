@@ -9,7 +9,6 @@
 #include "mpu9250.h"
 #include "ms5611.h"
 #include "kalmanfilter4.h"
-#include "varioaudio.h"
 #include "cct.h"
 #include "adc.h"
 #include "nvd.h"
@@ -29,6 +28,10 @@ float AccelmG[3]; // in milli-Gs
 float GyroDps[3];  // in degrees/second
 float KfAltitudeCm = 0.0f; // kalman filtered altitude in cm
 float KfClimbrateCps  = 0.0f; // kalman filtered climbrate in cm/s
+
+const int HEIGHT_THRESHOLD_5M = 500; // 5 metrów w centymetrach
+const int HEIGHT_THRESHOLD_3M = 300; // 3 metry w centymetrach
+
 
 // pinPCC (GPIO0) has an external 10K pullup resistor to VCC
 // pressing the button  will ground the pin.
@@ -80,11 +83,20 @@ inline void time_update(){
 	TimePreviousUs = TimeNowUs;
 	}
 
+void handle_led(int x, int delayTime)  {
+	for (int i = 0; i < x; i++) {
+		digitalWrite(LED, LOW);   // Włącz diodę
+		delay(delayTime);                // Czekaj 300 ms
+		digitalWrite(LED, HIGH);    // Wyłącz diodę
+		delay(delayTime);                // Czekaj 300 ms
+	}
+}
 
 void setup_vario() {
 	dbg_println(("Vario mode"));
  	Wire.begin(pinSDA, pinSCL);
 	Wire.setClock(400000); // set i2c clock frequency to 400kHz, AFTER Wire.begin()
+	//Wire.setClock(400000); // set i2c clock frequency to 400kHz, AFTER Wire.begin()
 	delay(100);
 	dbg_println(("\r\nChecking communication with MS5611"));
 	if (!Ms5611.read_prom()) {
@@ -121,14 +133,13 @@ void setup_vario() {
 	dbg_println(("\r\nMS5611 config"));
 	Ms5611.reset();
 	Ms5611.get_calib_coefficients(); // load MS5611 factory programmed calibration data
-	Ms5611.averaged_sample(10); // get an estimate of starting altitude
+	Ms5611.averaged_sample(30); // get an estimate of starting altitude
 	Ms5611.init_sample_state_machine(); // start the pressure & temperature sampling cycle
 
 	dbg_println(("\r\nKalmanFilter config"));
 	// initialize kalman filter with Ms5611 estimated altitude, and estimated climbrate = 0
 	kalmanFilter4_configure((float)Nvd.par.cfg.kf.zMeasVariance, 1000.0f*(float)Nvd.par.cfg.kf.accelVariance, true, Ms5611.altitudeCmAvg, 0.0f, 0.0f);
 
-	vaudio_config();  
 	time_init();
 	KfTimeDeltaUSecs = 0.0f;
 	BaroCounter = 0;
@@ -137,12 +148,15 @@ void setup_vario() {
 	SleepCounter = 0;
 
 	dbg_println(("\r\nStarting Vario\r\n"));
-	
+	handle_led(3, 300);
+
 	}     
 
 
 void setup() {
 	pinMode(pinPCC, INPUT); //  Program/Configure/Calibrate Button
+	pinMode(LED, OUTPUT);    // LED pin as output.
+
 
 #ifdef TOP_DEBUG    
 	Serial.begin(115200);
@@ -190,6 +204,27 @@ void setup() {
 		}
 	ui_btn_init();	
 	}
+
+	void update_led_based_on_altitude(float altitudeCm) {
+    static unsigned long lastToggleTime = 0;
+    static bool ledState = HIGH;
+    unsigned long currentTime = millis();
+
+    if (altitudeCm < HEIGHT_THRESHOLD_3M) {
+        // Migaj diodą co 500 ms
+        if (currentTime - lastToggleTime >= 500) {
+            lastToggleTime = currentTime;
+            ledState = !ledState; // Przełącz stan diody
+            digitalWrite(LED, ledState);
+        }
+    } else if (altitudeCm < HEIGHT_THRESHOLD_5M) {
+        // Włącz diodę, gdy wysokość jest poniżej 5 metrów, ale nie poniżej 3 metrów
+        digitalWrite(LED, LOW);
+    } else {
+        // Wyłącz diodę, gdy wysokość jest powyżej 5 metrów
+        digitalWrite(LED, HIGH);
+    }
+}
 
 
 void vario_loop() {
@@ -239,11 +274,14 @@ void vario_loop() {
 				float zAccelAverage = ringbuf_average_newest_samples(10); 
 				float dtKF = KfTimeDeltaUSecs/1000000.0f;
 				kalmanFilter4_predict(dtKF);
-				kalmanFilter4_update(Ms5611.altitudeCm, zAccelAverage, (float*)&KfAltitudeCm, (float*)&KfClimbrateCps);
+				kalmanFilter4_update(Ms5611.relativeAltitudeCm, zAccelAverage, (float*)&KfAltitudeCm, (float*)&KfClimbrateCps);
 				// reset time elapsed between kalman filter algorithm updates
 				KfTimeDeltaUSecs = 0.0f;
 				audioCps =  KfClimbrateCps >= 0.0f ? (int32_t)(KfClimbrateCps+0.5f) : (int32_t)(KfClimbrateCps-0.5f);
-				vaudio_tick_handler(audioCps);                
+
+				
+				update_led_based_on_altitude(KfAltitudeCm);
+
 				if (ABS(audioCps) > SLEEP_THRESHOLD_CPS) { 
 					// reset sleep timeout watchdog if there is significant vertical motion
 					SleepTimeoutSecs = 0;
@@ -280,7 +318,7 @@ void vario_loop() {
 				dbg_printf(("ba = %d ka = %d kv = %d\r\n",(int)Ms5611.altitudeCm, (int)KfAltitudeCm, (int)KfClimbrateCps));
 				dbg_printf(("altitude kalman = %d\r\n",(int)KfAltitudeCm));
 				dbg_printf(("relative altitude = %d\r\n",(int)Ms5611.relativeAltitudeCm));
-				
+
 				#endif
 
 				#ifdef CCT_DEBUG      
@@ -292,7 +330,7 @@ void vario_loop() {
 				#endif
 				}
 			}
-		}	
+    	}	
 	}
 
 
