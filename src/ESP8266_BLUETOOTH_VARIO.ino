@@ -15,6 +15,7 @@
 #include "audio.h"
 #include "ringbuf.h"
 #include "ui.h"
+#include <Adafruit_NeoPixel.h>
 
 
 int      AppMode;
@@ -28,10 +29,6 @@ float AccelmG[3]; // in milli-Gs
 float GyroDps[3];  // in degrees/second
 float KfAltitudeCm = 0.0f; // kalman filtered altitude in cm
 float KfClimbrateCps  = 0.0f; // kalman filtered climbrate in cm/s
-
-const int HEIGHT_THRESHOLD_5M = 500; // 5 metrów w centymetrach
-const int HEIGHT_THRESHOLD_3M = 300; // 3 metry w centymetrach
-
 
 // pinPCC (GPIO0) has an external 10K pullup resistor to VCC
 // pressing the button  will ground the pin.
@@ -58,6 +55,7 @@ volatile int SleepCounter;
 volatile int BaroCounter;
 volatile int SleepTimeoutSecs;
 
+Adafruit_NeoPixel pixels(NUMPIXELS, ledsPin, NEO_GRB + NEO_KHZ800);
 
 boolean bWebConfigure = false;
 
@@ -95,9 +93,13 @@ void handle_led(int x, int delayTime)  {
 void setup_vario() {
 	dbg_println(("Vario mode"));
  	Wire.begin(pinSDA, pinSCL);
-	Wire.setClock(400000); // set i2c clock frequency to 400kHz, AFTER Wire.begin()
+	Wire.setClock(100000); // set i2c clock frequency to 400kHz, AFTER Wire.begin()
 	//Wire.setClock(400000); // set i2c clock frequency to 400kHz, AFTER Wire.begin()
 	delay(100);
+	pixels.clear();
+	pixels.setBrightness(30);
+	pixels.fill(0x0000ff00, 0,1); //green color
+	pixels.show();
 	dbg_println(("\r\nChecking communication with MS5611"));
 	if (!Ms5611.read_prom()) {
 		dbg_println(("Bad CRC read from MS5611 calibration PROM"));
@@ -106,7 +108,8 @@ void setup_vario() {
 		ui_go_to_sleep();   // switch off and then on to fix this
 		}
 	dbg_println(("MS5611 OK"));
-  
+  	pixels.fill(0x0000ff00, 0,2); //green color
+	pixels.show();
 	dbg_println(("\r\nChecking communication with MPU9250"));
 	if (!Mpu9250.check_id()) {
 		dbg_println(("Error reading MPU9250 WHO_AM_I register"));
@@ -115,6 +118,8 @@ void setup_vario() {
 		ui_go_to_sleep();   // switch off and then on to fix this
 		}
 	dbg_println(("MPU9250 OK"));
+	pixels.fill(0x0000ff00, 0,3); //green color
+	pixels.show();
     
 	DrdyCounter = 0;
 	DrdyFlag = false;
@@ -125,10 +130,14 @@ void setup_vario() {
 
 	// configure MPU9250 to start generating gyro and accel data  
 	Mpu9250.config_accel_gyro();
-
+	pixels.fill(0x0000ff00, 0,4); //green color
+	pixels.show();
 	// calibrate gyro (and accel if required)
 	ui_calibrate_accel_gyro();
 	delay(50);  
+
+	pixels.fill(0x0000ff00, 0,5); //green color
+	pixels.show();
 	  
 	dbg_println(("\r\nMS5611 config"));
 	Ms5611.reset();
@@ -137,8 +146,14 @@ void setup_vario() {
 	Ms5611.init_sample_state_machine(); // start the pressure & temperature sampling cycle
 
 	dbg_println(("\r\nKalmanFilter config"));
+
+	pixels.fill(0x0000ff00, 0,6); //green color
+	pixels.show();
 	// initialize kalman filter with Ms5611 estimated altitude, and estimated climbrate = 0
 	kalmanFilter4_configure((float)Nvd.par.cfg.kf.zMeasVariance, 1000.0f*(float)Nvd.par.cfg.kf.accelVariance, true, Ms5611.altitudeCmAvg, 0.0f, 0.0f);
+
+	pixels.fill(0x0000ff00, 0,7); //green color
+	pixels.show();
 
 	time_init();
 	KfTimeDeltaUSecs = 0.0f;
@@ -149,6 +164,17 @@ void setup_vario() {
 
 	dbg_println(("\r\nStarting Vario\r\n"));
 	handle_led(3, 300);
+
+
+	for (int i = 0; i < 3; i++) {
+		pixels.fill(0x0000ff00, 0); //green color
+		pixels.show();
+		delay(400);                // Czekaj 300 ms
+		pixels.fill(0, 0); //green color
+		pixels.show();
+		delay(400);                 // Czekaj 300 ms
+	}
+
 
 	}     
 
@@ -171,6 +197,11 @@ void setup() {
 		dbg_println(("Error mounting LittleFS"));
 		ESP.restart();
 		}   
+
+	dbg_println(("Pixels begin"));
+	pixels.begin();
+	pixels.fill(0, 0); //green color
+		pixels.show();
 
 	audio_config(pinAudio); 
 
@@ -206,24 +237,42 @@ void setup() {
 	}
 
 	void update_led_based_on_altitude(float altitudeCm) {
-    static unsigned long lastToggleTime = 0;
-    static bool ledState = HIGH;
-    unsigned long currentTime = millis();
+		  static unsigned long lastToggleTime = 0;  // Track the last time LEDs were toggled
+    static bool ledState = true;              // LED state for blinking
+    unsigned long currentTime = millis();     // Get current time in milliseconds
 
-    if (altitudeCm < HEIGHT_THRESHOLD_3M) {
-        // Migaj diodą co 500 ms
-        if (currentTime - lastToggleTime >= 500) {
-            lastToggleTime = currentTime;
-            ledState = !ledState; // Przełącz stan diody
-            digitalWrite(LED, ledState);
+    // Iterate through all configurations to find the matching altitude range
+    for (int i = 0; i < sizeof(configs) / sizeof(configs[0]); i++) {
+        if (altitudeCm >= configs[i].minAltitude && altitudeCm < configs[i].maxAltitude) {
+            // Set the brightness based on the current configuration
+            pixels.setBrightness(configs[i].brightness);
+
+            // Set the LED color based on the current configuration
+            if (configs[i].shouldBlink) {
+                // If blinking, toggle the LED state based on the blink interval
+                if (currentTime - lastToggleTime >= configs[i].blinkInterval) {
+                    lastToggleTime = currentTime;
+                    ledState = !ledState;  // Toggle the LED state (on/off)
+                }
+                // Update the LEDs based on the toggled state
+                if (ledState) {
+                    pixels.fill(configs[i].color, 0);
+                } else {
+                    pixels.fill(0x00000000, 0); // Turn off LEDs (black)
+                }
+            } else {
+                // If no blinking, just set the LED to the configured color
+                pixels.fill(configs[i].color, 0);
+            }
+            pixels.show(); // Send the updated color and brightness to the LED strip
+            return; // Exit the function once the matching range is found
         }
-    } else if (altitudeCm < HEIGHT_THRESHOLD_5M) {
-        // Włącz diodę, gdy wysokość jest poniżej 5 metrów, ale nie poniżej 3 metrów
-        digitalWrite(LED, LOW);
-    } else {
-        // Wyłącz diodę, gdy wysokość jest powyżej 5 metrów
-        digitalWrite(LED, HIGH);
     }
+
+    // If the altitude doesn't match any range, turn off the LEDs
+    pixels.setBrightness(0);  // Set brightness to 0 (off)
+    pixels.fill(0x00000000, 0);  // Set color to black (off)
+    pixels.show();
 }
 
 

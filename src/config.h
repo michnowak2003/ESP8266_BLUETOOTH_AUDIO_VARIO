@@ -7,6 +7,31 @@
 #define pinDRDYInt   15
 #define pinAudio 	 14
 #define LED       2
+#define ledsPin        14
+#define NUMPIXELS 8
+
+
+////////////////////////////////////////////////////////////////////
+// Alarm configuration
+// Structure to store the LED configuration
+struct LedConfig {
+    uint32_t color;          // Color in 0xRRGGBB format
+    bool shouldBlink;        // Should the LEDs blink?
+    unsigned long blinkInterval; // Blink interval in milliseconds
+    float minAltitude;       // Minimum altitude for this range
+    float maxAltitude;       // Maximum altitude for this range
+    uint8_t brightness;      // Brightness level (0-255)
+};
+
+// LED configurations for different altitude ranges
+const LedConfig configs[] = {
+	{0x00FF0000, true, 100, -150, -50, 255}, 
+    {0x00FF0000, true, 300, -50, 50, 50},  // Red, blinks every 500 ms, from 0 to 300 cm
+    {0x00FFFF00, false, 0, 50, 100, 50}, // Yellow, no blinking, from 300 to 500 cm
+    {0x0000FF00, false, 0, 100, 150, 50} // Green, no blinking, above 500 cm
+};
+
+
 
 
 #define APP_MODE_VARIO   11
