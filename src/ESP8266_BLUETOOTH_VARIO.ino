@@ -16,6 +16,8 @@
 #include "ringbuf.h"
 #include "ui.h"
 #include <Adafruit_NeoPixel.h>
+#include "wificfg.h"
+
 
 
 int      AppMode;
@@ -205,7 +207,7 @@ void setup() {
 
 	audio_config(pinAudio); 
 
-	bWebConfigure = false;
+	//bWebConfigure = true;
 	dbg_println(("To start web configuration mode, press and hold the PCC button"));
 	dbg_println(("until you hear a low-frequency tone. Then release the button"));
 	for (int cnt = 0; cnt < 4; cnt++) {
@@ -221,7 +223,9 @@ void setup() {
 		// 3 second long tone with low frequency to indicate unit is now in web server configuration mode.
 		// After you are done with web configuration, switch off the vario as the wifi radio
 		// consumes a lot of power.
-		audio_generate_tone(200, 3000);
+		pixels.fill(0x00FF33FF, 0); //pink color
+		pixels.show();
+		wificfg_ap_server_init(); 
 		}
   	else {
     	ui_indicate_battery_voltage();

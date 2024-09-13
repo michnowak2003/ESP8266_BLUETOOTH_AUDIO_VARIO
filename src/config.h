@@ -9,6 +9,7 @@
 #define LED       2
 #define ledsPin        14
 #define NUMPIXELS 8
+#define button 16
 
 
 ////////////////////////////////////////////////////////////////////

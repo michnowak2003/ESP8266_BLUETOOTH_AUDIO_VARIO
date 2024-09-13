@@ -24,7 +24,7 @@ typedef struct {
 	} CALIB_PARAMS_t;	
 
 typedef struct {
-	int16_t  climbThresholdCps;
+	int16_t  alarmColor1;
 	int16_t  zeroThresholdCps;
 	int16_t  sinkThresholdCps;
 	int16_t  crossoverCps;

@@ -77,7 +77,7 @@ void nvd_init(void)   {
 	dbg_printf(("gzBias = %d\r\n", Nvd.par.calib.gzBias));
     
     dbg_println(("VARIO"));
-    dbg_printf(("climbThresholdCps = %d\r\n", Nvd.par.cfg.vario.climbThresholdCps));
+    dbg_printf(("alarmColor1 = %d\r\n", Nvd.par.cfg.vario.alarmColor1));
     dbg_printf(("zeroThresholdCps = %d\r\n", Nvd.par.cfg.vario.zeroThresholdCps));
     dbg_printf(("sinkThresholdCps = %d\r\n", Nvd.par.cfg.vario.sinkThresholdCps));
     dbg_printf(("crossoverCps = %d\r\n", Nvd.par.cfg.vario.crossoverCps));
@@ -115,7 +115,7 @@ void nvd_set_defaults() {
     Nvd.par.calib.gyBias = 0;
     Nvd.par.calib.gzBias = 0;
 
-    Nvd.par.cfg.vario.climbThresholdCps = VARIO_CLIMB_THRESHOLD_CPS_DEFAULT;
+    Nvd.par.cfg.vario.alarmColor1 = 0;
     Nvd.par.cfg.vario.zeroThresholdCps = VARIO_ZERO_THRESHOLD_CPS_DEFAULT;
     Nvd.par.cfg.vario.sinkThresholdCps = VARIO_SINK_THRESHOLD_CPS_DEFAULT;
     Nvd.par.cfg.vario.crossoverCps = VARIO_CROSSOVER_CPS_DEFAULT;
